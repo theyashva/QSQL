@@ -1,0 +1,128 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-success: hsl(var(--success));
+  --color-warning: hsl(var(--warning));
+  --radius: 0.75rem;
+}
+
+:root {
+  --background: 0 0% 98%;
+  --foreground: 240 10% 15%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 15%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 15%;
+  --primary: 243 75% 59%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 240 5% 96%;
+  --secondary-foreground: 240 6% 25%;
+  --muted: 240 5% 96%;
+  --muted-foreground: 240 4% 46%;
+  --accent: 240 5% 96%;
+  --accent-foreground: 240 6% 25%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 240 6% 90%;
+  --input: 240 6% 90%;
+  --ring: 243 75% 59%;
+  --success: 142 71% 45%;
+  --warning: 38 92% 50%;
+}
+
+.dark {
+  --background: 240 10% 6%;
+  --foreground: 0 0% 95%;
+  --card: 240 10% 9%;
+  --card-foreground: 0 0% 95%;
+  --popover: 240 10% 9%;
+  --popover-foreground: 0 0% 95%;
+  --primary: 243 75% 65%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 240 4% 16%;
+  --secondary-foreground: 0 0% 95%;
+  --muted: 240 4% 16%;
+  --muted-foreground: 240 5% 65%;
+  --accent: 240 4% 16%;
+  --accent-foreground: 0 0% 95%;
+  --destructive: 0 63% 55%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 240 4% 18%;
+  --input: 240 4% 18%;
+  --ring: 243 75% 65%;
+  --success: 142 71% 45%;
+  --warning: 38 92% 50%;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+.monaco-editor .overflow-guard {
+  border-radius: var(--radius);
+}
+
+.milky-bg {
+  background-image: radial-gradient(
+    ellipse at top,
+    hsl(var(--primary) / 0.05) 0%,
+    transparent 50%
+  );
+}
+
+.dark .milky-bg {
+  background-image: radial-gradient(
+    ellipse at top,
+    hsl(var(--primary) / 0.08) 0%,
+    transparent 50%
+  );
+}
