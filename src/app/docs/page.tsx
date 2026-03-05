@@ -2,10 +2,10 @@ import { BookOpen, Terminal, Key, Database, Table2, GitFork, Shield } from 'luci
 
 export default function DocsPage() {
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12 pb-16 animate-fade-in">
-      <div className="mb-10">
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-2">Documentation</h1>
-        <p className="text-sm text-muted-foreground max-w-xl">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 pb-20 animate-fade-in">
+      <div className="mb-12 text-center">
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-3">Documentation</h1>
+        <p className="text-base text-muted-foreground max-w-xl mx-auto">
           Learn how to use QSQL to manage your databases effectively.
         </p>
       </div>
@@ -23,7 +23,7 @@ export default function DocsPage() {
               <li>Create a free Supabase account and project</li>
               <li>Set up the <code className="px-1 py-0.5 rounded bg-muted text-foreground text-xs font-mono">exec_sql</code> function in your database</li>
               <li>Connect to QSQL using your project URL and anon key</li>
-              <li>Create a project and start writing SQL</li>
+              <li>Open the playground and start writing SQL</li>
             </ol>
           </div>
         </section>

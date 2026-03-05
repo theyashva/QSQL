@@ -7,14 +7,50 @@ export interface SupabaseCredentials {
   anonKey: string;
 }
 
-export interface Project {
+export interface EditorTab {
   id: string;
   name: string;
   createdAt: string;
 }
 
 const CREDS_KEY = 'qsql_supabase_creds';
-const PROJECTS_KEY = 'qsql_projects';
+const TABS_KEY = 'qsql_tabs';
+
+export const EXEC_SQL_MISSING = '__EXEC_SQL_MISSING__';
+
+export const EXEC_SQL_FUNCTION = `CREATE OR REPLACE FUNCTION exec_sql(query_text TEXT)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  result JSON;
+  is_select BOOLEAN;
+  affected INT;
+BEGIN
+  is_select := UPPER(LTRIM(query_text)) ~ '^(SELECT|WITH|TABLE|VALUES|SHOW|EXPLAIN)';
+
+  IF is_select THEN
+    EXECUTE 'SELECT COALESCE(json_agg(row_to_json(t)), ''[]''::json) FROM ('
+      || query_text || ') t'
+    INTO result;
+    RETURN result;
+  ELSE
+    EXECUTE query_text;
+    GET DIAGNOSTICS affected = ROW_COUNT;
+    RETURN json_build_object(
+      'status', 'success',
+      'message', 'Query executed successfully',
+      'rows_affected', affected
+    );
+  END IF;
+EXCEPTION WHEN OTHERS THEN
+  RETURN json_build_object(
+    'status', 'error',
+    'message', SQLERRM
+  );
+END;
+$$;`;
 
 export function saveCredentials(creds: SupabaseCredentials): void {
   if (typeof window !== 'undefined') {
@@ -43,9 +79,9 @@ export function createSupabaseClient(creds: SupabaseCredentials): SupabaseClient
   return createClient(creds.url, creds.anonKey);
 }
 
-export function getProjects(): Project[] {
+export function getTabs(): EditorTab[] {
   if (typeof window === 'undefined') return [];
-  const stored = localStorage.getItem(PROJECTS_KEY);
+  const stored = localStorage.getItem(TABS_KEY);
   if (!stored) return [];
   try {
     return JSON.parse(stored);
@@ -54,45 +90,67 @@ export function getProjects(): Project[] {
   }
 }
 
-export function saveProjects(projects: Project[]): void {
+export function saveTabs(tabs: EditorTab[]): void {
   if (typeof window !== 'undefined') {
-    localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
+    localStorage.setItem(TABS_KEY, JSON.stringify(tabs));
   }
 }
 
-export function createProject(name: string): Project {
-  const projects = getProjects();
-  const project: Project = {
+export function createTab(name: string): EditorTab {
+  const tabs = getTabs();
+  const tab: EditorTab = {
     id: crypto.randomUUID(),
     name,
     createdAt: new Date().toISOString(),
   };
-  projects.push(project);
-  saveProjects(projects);
-  return project;
+  tabs.push(tab);
+  saveTabs(tabs);
+  return tab;
 }
 
-export function renameProject(id: string, newName: string): void {
-  const projects = getProjects();
-  const project = projects.find((p) => p.id === id);
-  if (project) {
-    project.name = newName;
-    saveProjects(projects);
+export function renameTab(id: string, newName: string): void {
+  const tabs = getTabs();
+  const tab = tabs.find((t) => t.id === id);
+  if (tab) {
+    tab.name = newName;
+    saveTabs(tabs);
   }
 }
 
-export function deleteProject(id: string): void {
-  const projects = getProjects().filter((p) => p.id !== id);
-  saveProjects(projects);
-  // Also clean up project-specific query history
+export function deleteTab(id: string): void {
+  const tabs = getTabs().filter((t) => t.id !== id);
+  saveTabs(tabs);
   if (typeof window !== 'undefined') {
-    localStorage.removeItem(`qsql_history_${id}`);
+    localStorage.removeItem(`qsql_draft_${id}`);
   }
 }
 
-export function getQueryHistory(projectId: string): string[] {
+export function clearAllData(): void {
+  if (typeof window === 'undefined') return;
+  const tabs = getTabs();
+  for (const tab of tabs) {
+    localStorage.removeItem(`qsql_draft_${tab.id}`);
+  }
+  localStorage.removeItem(TABS_KEY);
+  localStorage.removeItem('qsql_history');
+}
+
+// --- Editor draft persistence ---
+
+export function saveDraft(projectId: string, content: string): void {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(`qsql_draft_${projectId}`, content);
+  }
+}
+
+export function getDraft(projectId: string): string {
+  if (typeof window === 'undefined') return '';
+  return localStorage.getItem(`qsql_draft_${projectId}`) || '';
+}
+
+export function getQueryHistory(): string[] {
   if (typeof window === 'undefined') return [];
-  const stored = localStorage.getItem(`qsql_history_${projectId}`);
+  const stored = localStorage.getItem('qsql_history');
   if (!stored) return [];
   try {
     return JSON.parse(stored);
@@ -101,15 +159,15 @@ export function getQueryHistory(projectId: string): string[] {
   }
 }
 
-export function saveQueryToHistory(projectId: string, query: string): void {
+export function saveQueryToHistory(query: string): void {
   if (typeof window === 'undefined') return;
-  const history = getQueryHistory(projectId);
+  const history = getQueryHistory();
   // Avoid duplicates at the top
   const filtered = history.filter((q) => q !== query);
   filtered.unshift(query);
   // Keep last 50 queries
   const trimmed = filtered.slice(0, 50);
-  localStorage.setItem(`qsql_history_${projectId}`, JSON.stringify(trimmed));
+  localStorage.setItem('qsql_history', JSON.stringify(trimmed));
 }
 
 export async function executeSQL(
@@ -122,6 +180,9 @@ export async function executeSQL(
     const duration = Math.round(performance.now() - start);
 
     if (error) {
+      if (error.message.includes('Could not find the function') || error.message.includes('exec_sql')) {
+        return { data: null, error: EXEC_SQL_MISSING, rowCount: 0, duration };
+      }
       return { data: null, error: error.message, rowCount: 0, duration };
     }
 
@@ -193,6 +254,9 @@ async function executeSQLDirect(
     if (!response.ok) {
       const errBody = await response.json().catch(() => ({}));
       const message = (errBody as { message?: string }).message || (errBody as { error?: string }).error || response.statusText;
+      if (message.includes('Could not find the function') || message.includes('exec_sql') || response.status === 404) {
+        return { data: null, error: EXEC_SQL_MISSING, rowCount: 0, duration };
+      }
       return { data: null, error: message, rowCount: 0, duration };
     }
 

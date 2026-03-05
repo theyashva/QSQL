@@ -3,23 +3,23 @@ import { Github, Heart, GitFork, Star, BookOpen, Scale, Users, Code2 } from 'luc
 
 export default function OpenSourcePage() {
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 sm:py-12 pb-16 animate-fade-in">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 pb-20 animate-fade-in">
       {/* Hero */}
-      <div className="text-center mb-12">
-        <div className="w-10 h-10 rounded-lg bg-primary/8 flex items-center justify-center mx-auto mb-3">
-          <Heart className="w-5 h-5 text-primary" />
+      <div className="text-center mb-14">
+        <div className="w-12 h-12 rounded-xl bg-primary/8 flex items-center justify-center mx-auto mb-4">
+          <Heart className="w-6 h-6 text-primary" />
         </div>
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-2">
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-3">
           Open Source &amp; Community Driven
         </h1>
-        <p className="text-sm text-muted-foreground max-w-xl mx-auto">
+        <p className="text-base text-muted-foreground max-w-2xl mx-auto">
           QSQL is fully open source under the MIT License. We believe in building tools
           that empower developers and learners alike.
         </p>
       </div>
 
       {/* Quick Links */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-12">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-14">
         <a
           href="https://github.com/theyashva/QSQL"
           target="_blank"

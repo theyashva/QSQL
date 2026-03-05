@@ -3,12 +3,12 @@ import { ArrowRight, CheckCircle2, ExternalLink, Copy, ChevronRight } from 'luci
 
 export default function GuidePage() {
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 sm:py-12 pb-16 animate-fade-in">
-      <div className="mb-10">
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-2">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 pb-20 animate-fade-in">
+      <div className="mb-12 text-center">
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-3">
           Supabase Setup Guide
         </h1>
-        <p className="text-sm text-muted-foreground max-w-xl">
+        <p className="text-base text-muted-foreground max-w-2xl mx-auto">
           Follow these steps to create and connect your Supabase database to QSQL.
           It only takes a few minutes.
         </p>
@@ -149,10 +149,10 @@ $$;`}</pre>
           </div>
           <div className="p-4 space-y-3 text-sm text-muted-foreground">
             <ol className="list-decimal list-inside space-y-1.5 ml-2">
-              <li>Go to the <Link href="/projects" className="text-primary hover:underline">Projects page</Link></li>
+              <li>Go to the <Link href="/playground" className="text-primary hover:underline">Playground</Link></li>
               <li>Paste your <strong className="text-foreground">Project URL</strong> and <strong className="text-foreground">anon key</strong></li>
               <li>Click <strong className="text-foreground">&quot;Connect to Supabase&quot;</strong></li>
-              <li>Once connected, create a new project and start writing SQL!</li>
+              <li>Once connected, start writing SQL in the editor tabs!</li>
             </ol>
           </div>
         </div>
@@ -229,7 +229,7 @@ VALUES ('Hello from QSQL!');`}</pre>
       {/* CTA */}
       <div className="mt-10 text-center">
         <Link
-          href="/projects"
+          href="/playground"
           className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-all text-sm active:scale-[0.97]"
         >
           Start Using QSQL

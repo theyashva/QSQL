@@ -21,6 +21,7 @@ import {
   Maximize2,
   Minimize2,
   RotateCcw,
+  ExternalLink,
 } from 'lucide-react';
 import {
   executeSQL,
@@ -28,11 +29,15 @@ import {
   saveQueryToHistory,
   getCredentials,
   createSupabaseClient,
+  getDraft,
+  saveDraft,
+  EXEC_SQL_MISSING,
+  EXEC_SQL_FUNCTION,
 } from '@/lib/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface SQLEditorProps {
-  projectId: string;
+  tabId: string;
 }
 
 interface QueryResult {
@@ -43,8 +48,9 @@ interface QueryResult {
   query: string;
 }
 
-// Register custom Monaco themes on load
-loader.init().then((monaco: typeof MonacoType) => {
+// Register custom Monaco themes on load (only in browser)
+if (typeof window !== 'undefined') {
+  loader.init().then((monaco: typeof MonacoType) => {
   monaco.editor.defineTheme('qsql-dark', {
     base: 'vs-dark',
     inherit: true,
@@ -101,8 +107,9 @@ loader.init().then((monaco: typeof MonacoType) => {
     },
   });
 });
+}
 
-export function SQLEditor({ projectId }: SQLEditorProps) {
+export function SQLEditor({ tabId }: SQLEditorProps) {
   const { theme } = useTheme();
   const queryRef = useRef('');
   const [running, setRunning] = useState(false);
@@ -119,6 +126,7 @@ export function SQLEditor({ projectId }: SQLEditorProps) {
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const draggingRef = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -126,8 +134,28 @@ export function SQLEditor({ projectId }: SQLEditorProps) {
     if (creds) {
       clientRef.current = createSupabaseClient(creds);
     }
-    setHistory(getQueryHistory(projectId));
-  }, [projectId]);
+    setHistory(getQueryHistory());
+
+    // Load saved draft
+    const draft = getDraft(tabId);
+    if (draft) {
+      queryRef.current = draft;
+      setCharCount(draft.length);
+    }
+
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, [tabId]);
+
+  // Debounced auto-save of editor content
+  const handleEditorChange = useCallback((val: string | undefined) => {
+    queryRef.current = val || '';
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveDraft(tabId, queryRef.current);
+    }, 500);
+  }, [tabId]);
 
   const getQueryText = useCallback(() => {
     const editor = editorRef.current;
@@ -162,14 +190,14 @@ export function SQLEditor({ projectId }: SQLEditorProps) {
     for (const stmt of statements) {
       const result = await executeSQL(clientRef.current, stmt);
       newResults.push({ ...result, query: stmt });
-      saveQueryToHistory(projectId, stmt);
+      saveQueryToHistory(stmt);
     }
 
     setResults(newResults);
     setActiveResultIdx(0);
-    setHistory(getQueryHistory(projectId));
+    setHistory(getQueryHistory());
     setRunning(false);
-  }, [projectId, getQueryText]);
+  }, [tabId, getQueryText]);
 
   // Keep a stable ref to the latest handleRun for editor actions
   const handleRunRef = useRef(handleRun);
@@ -350,6 +378,7 @@ export function SQLEditor({ projectId }: SQLEditorProps) {
               editorRef.current?.setValue('');
               editorRef.current?.focus();
               setCharCount(0);
+              saveDraft(tabId, '');
             }}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
             title="Clear Editor"
@@ -407,8 +436,8 @@ export function SQLEditor({ projectId }: SQLEditorProps) {
           <Editor
             height="100%"
             defaultLanguage="sql"
-            defaultValue=""
-            onChange={(val) => { queryRef.current = val || ''; }}
+            defaultValue={getDraft(tabId)}
+            onChange={handleEditorChange}
             onMount={handleEditorMount}
             theme={theme === 'dark' ? 'qsql-dark' : 'qsql-light'}
             options={{
@@ -497,12 +526,19 @@ export function SQLEditor({ projectId }: SQLEditorProps) {
                     <AlertCircle className="w-3 h-3" />
                     Error
                   </span>
-                ) : (
-                  <span className="flex items-center gap-1 text-[11px] text-emerald-500 font-medium">
-                    <CheckCircle2 className="w-3 h-3" />
-                    {activeResult?.rowCount || 0} rows
-                  </span>
-                )}
+                ) : (() => {
+                  const isNonSelect = activeResult?.data?.length === 1 && 'status' in (activeResult.data[0] || {}) && activeResult.data[0].status === 'success';
+                  const affected = isNonSelect && typeof activeResult?.data?.[0]?.rows_affected === 'number' ? activeResult.data[0].rows_affected as number : null;
+                  return (
+                    <span className="flex items-center gap-1 text-[11px] text-emerald-500 font-medium">
+                      <CheckCircle2 className="w-3 h-3" />
+                      {isNonSelect 
+                        ? `${affected ?? 0} ${(affected ?? 0) === 1 ? 'row' : 'rows'} affected`
+                        : `${activeResult?.rowCount || 0} rows`
+                      }
+                    </span>
+                  );
+                })()}
                 <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                   <Clock className="w-3 h-3" />
                   {activeResult?.duration || 0}ms
@@ -550,7 +586,59 @@ export function SQLEditor({ projectId }: SQLEditorProps) {
 
             {/* Result body */}
             <div className="flex-1 overflow-auto">
-              {activeResult?.error ? (
+              {activeResult?.error === EXEC_SQL_MISSING ? (
+                <div className="p-4 space-y-4">
+                  <div className="flex items-start gap-2.5 p-3.5 rounded-lg bg-amber-500/8 border border-amber-500/20">
+                    <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold text-foreground mb-1">Database function not found</p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        QSQL requires a <code className="px-1 py-0.5 rounded bg-muted text-foreground text-[11px] font-mono">exec_sql</code> function in your Supabase database. 
+                        Copy the SQL below and run it in your Supabase SQL Editor.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Link to Supabase SQL Editor */}
+                  {(() => {
+                    const creds = getCredentials();
+                    const supabaseHost = creds?.url?.replace('https://', '').split('.')[0] || '';
+                    const sqlEditorUrl = supabaseHost 
+                      ? `https://supabase.com/dashboard/project/${supabaseHost}/sql/new`
+                      : 'https://supabase.com/dashboard';
+                    return (
+                      <a
+                        href={sqlEditorUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors"
+                      >
+                        Open Supabase SQL Editor
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    );
+                  })()}
+
+                  {/* Copyable SQL snippet */}
+                  <div className="relative rounded-lg border border-border/50 bg-card overflow-hidden">
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-border/40 bg-muted/30">
+                      <span className="text-[11px] font-semibold text-muted-foreground">Run this in Supabase SQL Editor</span>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(EXEC_SQL_FUNCTION)}
+                        className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                      >
+                        <Copy className="w-3 h-3" />
+                        Copy
+                      </button>
+                    </div>
+                    <pre className="p-3 text-[11px] font-mono text-foreground overflow-x-auto leading-relaxed max-h-64 overflow-y-auto">{EXEC_SQL_FUNCTION}</pre>
+                  </div>
+
+                  <p className="text-[11px] text-muted-foreground">
+                    After running the function, come back here and re-run your query.
+                  </p>
+                </div>
+              ) : activeResult?.error ? (
                 <div className="p-4">
                   <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/5 border border-destructive/20">
                     <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
@@ -563,6 +651,56 @@ export function SQLEditor({ projectId }: SQLEditorProps) {
                   </p>
                 </div>
               ) : activeResult?.data && activeResult.data.length > 0 ? (
+                (() => {
+                  const isStatusResult = activeResult.data.length === 1 && 'status' in activeResult.data[0] && activeResult.data[0].status === 'success';
+                  if (isStatusResult) {
+                    const row = activeResult.data![0];
+                    const rowsAffected = typeof row.rows_affected === 'number' ? row.rows_affected : null;
+                    return (
+                      <div className="p-4">
+                        <div className="flex items-start gap-2.5 p-3.5 rounded-lg bg-emerald-500/8 border border-emerald-500/20">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">Query executed successfully</p>
+                            {rowsAffected !== null && (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {rowsAffected} {rowsAffected === 1 ? 'row' : 'rows'} affected
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <table className="w-full text-xs mt-3 rounded-lg border border-border/40 overflow-hidden">
+                          <thead>
+                            <tr className="border-b border-border/50 bg-card">
+                              <th className="text-left px-3 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider bg-card">Property</th>
+                              <th className="text-left px-3 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider bg-card">Value</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr className="border-b border-border/20">
+                              <td className="px-3 py-1.5 text-muted-foreground font-mono">status</td>
+                              <td className="px-3 py-1.5 text-emerald-500 font-mono font-medium">success</td>
+                            </tr>
+                            <tr className="border-b border-border/20 bg-muted/10">
+                              <td className="px-3 py-1.5 text-muted-foreground font-mono">message</td>
+                              <td className="px-3 py-1.5 text-foreground font-mono">{String(row.message || '')}</td>
+                            </tr>
+                            {rowsAffected !== null && (
+                              <tr className="border-b border-border/20">
+                                <td className="px-3 py-1.5 text-muted-foreground font-mono">rows_affected</td>
+                                <td className="px-3 py-1.5 font-mono"><span className="text-blue-500">{rowsAffected}</span></td>
+                              </tr>
+                            )}
+                            <tr className={rowsAffected !== null ? 'bg-muted/10' : ''}>
+                              <td className="px-3 py-1.5 text-muted-foreground font-mono">duration</td>
+                              <td className="px-3 py-1.5 font-mono"><span className="text-blue-500">{activeResult.duration}</span><span className="text-muted-foreground">ms</span></td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  }
+                  return (
                 <table className="w-full text-xs">
                   <thead className="sticky top-0 z-10">
                     <tr className="border-b border-border/50 bg-card">
@@ -606,6 +744,8 @@ export function SQLEditor({ projectId }: SQLEditorProps) {
                     ))}
                   </tbody>
                 </table>
+                  );
+                })()
               ) : (
                 <div className="flex flex-col items-center justify-center h-full py-8 text-center">
                   <CheckCircle2 className="w-8 h-8 text-emerald-500/50 mb-2" />

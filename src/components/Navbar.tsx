@@ -14,19 +14,19 @@ export function Navbar() {
     setMobileOpen(false);
   }, [pathname]);
 
-  // Hide navbar on editor pages
-  if (pathname.startsWith('/editor')) return null;
+  // Hide navbar on playground pages
+  if (pathname.startsWith('/playground')) return null;
 
   const links = [
     { href: '/', label: 'Home' },
-    { href: '/projects', label: 'Projects' },
+    { href: '/playground', label: 'Playground' },
     { href: '/docs', label: 'Docs' },
     { href: '/open-source', label: 'Open Source' },
   ];
 
   return (
     <nav className="sticky top-0 z-50 border-b border-border/50 glass-nav">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14">
           <Link href="/" className="flex items-center gap-2 group">
             <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
