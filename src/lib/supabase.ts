@@ -27,8 +27,20 @@ DECLARE
   result JSON;
   is_select BOOLEAN;
   affected INT;
+  clean_query TEXT;
 BEGIN
-  is_select := UPPER(LTRIM(query_text)) ~ '^(SELECT|WITH|TABLE|VALUES|SHOW|EXPLAIN)';
+  -- Strip leading single-line comments (-- ...)
+  clean_query := query_text;
+  WHILE clean_query ~ '^\\s*--' LOOP
+    clean_query := REGEXP_REPLACE(clean_query, '^\\s*--[^\\n]*\\n?', '', '');
+  END LOOP;
+  -- Strip leading block comments (/* ... */)
+  WHILE clean_query ~ '^\\s*/\\*' LOOP
+    clean_query := REGEXP_REPLACE(clean_query, '^\\s*/\\*.*?\\*/', '', 's');
+  END LOOP;
+  clean_query := LTRIM(clean_query);
+
+  is_select := UPPER(clean_query) ~ '^(SELECT|WITH|TABLE|VALUES|SHOW|EXPLAIN)';
 
   IF is_select THEN
     EXECUTE 'SELECT COALESCE(json_agg(row_to_json(t)), ''[]''::json) FROM ('
@@ -193,7 +205,9 @@ export async function executeSQL(
 
     // If the function returned a "success" object for non-SELECT statements
     // e.g. { status: "success", message: "Query executed successfully" }
-    const isNonSelect = /^\s*(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE|BEGIN|COMMIT|ROLLBACK|SET|DO)\b/i.test(query);
+    // Strip comments before checking query type
+    const cleanedQuery = query.replace(/--[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    const isNonSelect = /^\s*(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE|BEGIN|COMMIT|ROLLBACK|SET|DO)\b/i.test(cleanedQuery);
 
     if (!Array.isArray(data)) {
       // Single object returned
@@ -263,7 +277,9 @@ async function executeSQLDirect(
     const result = await response.json();
 
     // Same logic as main handler: detect false success for SELECT queries
-    const isNonSelect = /^\s*(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE|BEGIN|COMMIT|ROLLBACK|SET|DO)\b/i.test(query);
+    // Strip comments before checking query type
+    const cleanedQuery = query.replace(/--[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    const isNonSelect = /^\s*(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE|BEGIN|COMMIT|ROLLBACK|SET|DO)\b/i.test(cleanedQuery);
 
     if (result && !Array.isArray(result) && result.status === 'success' && !isNonSelect) {
       return {

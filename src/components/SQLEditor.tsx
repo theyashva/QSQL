@@ -109,6 +109,45 @@ if (typeof window !== 'undefined') {
 });
 }
 
+/** Strip single-line (--) and block (/* *​/) SQL comments while preserving string literals */
+function stripSQLComments(sql: string): string {
+  let result = '';
+  let i = 0;
+  while (i < sql.length) {
+    // Single-quoted string literal — preserve as-is
+    if (sql[i] === "'") {
+      result += sql[i++];
+      while (i < sql.length) {
+        if (sql[i] === "'" && i + 1 < sql.length && sql[i + 1] === "'") {
+          result += "''";
+          i += 2;
+        } else if (sql[i] === "'") {
+          result += sql[i++];
+          break;
+        } else {
+          result += sql[i++];
+        }
+      }
+    }
+    // Single-line comment (--) — skip to end of line, keep newline
+    else if (sql[i] === '-' && i + 1 < sql.length && sql[i + 1] === '-') {
+      i += 2;
+      while (i < sql.length && sql[i] !== '\n') i++;
+    }
+    // Block comment (/* ... */) — skip entirely
+    else if (sql[i] === '/' && i + 1 < sql.length && sql[i + 1] === '*') {
+      i += 2;
+      while (i < sql.length - 1 && !(sql[i] === '*' && sql[i + 1] === '/')) i++;
+      if (i < sql.length - 1) i += 2;
+    }
+    // Normal character
+    else {
+      result += sql[i++];
+    }
+  }
+  return result;
+}
+
 export function SQLEditor({ tabId }: SQLEditorProps) {
   const { theme } = useTheme();
   const queryRef = useRef('');
@@ -180,7 +219,10 @@ export function SQLEditor({ tabId }: SQLEditorProps) {
 
     setRunning(true);
 
-    const statements = trimmed
+    // Strip SQL comments (-- and /* */) before splitting, preserving string literals
+    const stripped = stripSQLComments(trimmed);
+
+    const statements = stripped
       .split(/;\s*(?=(?:[^']*'[^']*')*[^']*$)/)
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
