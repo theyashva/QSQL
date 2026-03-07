@@ -68,8 +68,6 @@ export default function PlaygroundPage() {
     const currentCreds = getCredentials();
     if (currentCreds) {
       const client = createSupabaseClient(currentCreds);
-
-      // Drop all user tables in public schema
       const dropTablesSQL = `DO $$
 DECLARE
   r RECORD;
@@ -82,8 +80,6 @@ BEGIN
     EXECUTE 'DROP TABLE IF EXISTS public.' || quote_ident(r.tablename) || ' CASCADE';
   END LOOP;
 END $$;`;
-
-      // Drop all user-created schemas (not system ones)
       const dropSchemasSQL = `DO $$
 DECLARE
   r RECORD;
@@ -96,7 +92,6 @@ BEGIN
     EXECUTE 'DROP SCHEMA IF EXISTS ' || quote_ident(r.schema_name) || ' CASCADE';
   END LOOP;
 END $$;`;
-
       await executeSQL(client, dropTablesSQL);
       await executeSQL(client, dropSchemasSQL);
     }
@@ -129,10 +124,7 @@ END $$;`;
 
   const handleRenameTab = (id: string) => {
     const trimmed = editName.trim();
-    if (!trimmed) {
-      setEditingTabId(null);
-      return;
-    }
+    if (!trimmed) { setEditingTabId(null); return; }
     renameTab(id, trimmed);
     setTabs(getTabs());
     setEditingTabId(null);
@@ -141,52 +133,69 @@ END $$;`;
 
   if (!mounted) {
     return (
-      <div className="h-screen flex items-center justify-center text-sm text-muted-foreground">
-        Loading...
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center animate-soft-pulse">
+            <Database className="w-5 h-5 text-primary" />
+          </div>
+          <span className="text-sm text-muted-foreground font-medium">Loading...</span>
+        </div>
       </div>
     );
   }
 
+  /* ═══ CONNECTION SCREEN ═══ */
   if (!creds) {
     return (
-      <div className="max-w-md mx-auto px-4 py-24 sm:py-32 animate-fade-in">
-        <div className="text-center mb-10">
-          <div className="w-14 h-14 rounded-xl bg-primary/8 flex items-center justify-center mx-auto mb-4">
-            <Database className="w-7 h-7 text-primary" />
+      <div className="min-h-screen relative overflow-hidden bg-background">
+        {/* Background layers */}
+        <div className="absolute inset-0 hero-gradient" />
+        <div className="absolute inset-0 grid-pattern" />
+
+        <div className="relative flex items-center justify-center min-h-screen px-4">
+          <div className="w-full max-w-[28rem] animate-fade-in">
+            {/* Header */}
+            <div className="text-center mb-10">
+              <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-primary/15 to-violet-500/15 border border-primary/10 flex items-center justify-center mx-auto mb-6 shadow-xl shadow-primary/10">
+                <Database className="w-10 h-10 text-primary" />
+              </div>
+              <h1 className="text-3xl sm:text-4xl font-black text-foreground mb-3">
+                Connect Your Database
+              </h1>
+              <p className="text-base text-muted-foreground max-w-[24rem] mx-auto">
+                Enter your Supabase credentials to start writing SQL.
+              </p>
+            </div>
+
+            {/* Form card */}
+            <div className="elevated-card p-8 sm:p-10">
+              <ConnectionForm onConnected={handleConnected} />
+            </div>
+
+            {/* Help link */}
+            <p className="mt-6 text-center text-sm text-muted-foreground">
+              Need help?{' '}
+              <a href="/guide" className="text-primary hover:underline font-semibold">
+                Read the setup guide →
+              </a>
+            </p>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-3">
-            Connect Your Database
-          </h1>
-          <p className="text-base text-muted-foreground">
-            Enter your Supabase credentials to start the playground.
-          </p>
         </div>
-        <div className="p-6 rounded-xl border border-border/50 bg-card">
-          <ConnectionForm onConnected={handleConnected} />
-        </div>
-        <p className="mt-4 text-center text-sm text-muted-foreground">
-          Need help?{' '}
-          <a href="/guide" className="text-primary hover:underline font-medium">
-            Read the setup guide
-          </a>
-        </p>
       </div>
     );
   }
 
+  /* ═══ EDITOR SCREEN ═══ */
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
-      {/* Top bar with tabs */}
-      <div className="flex items-center h-10 border-b border-border/40 bg-card/80 backdrop-blur-md shrink-0">
+    <div className="h-screen flex flex-col overflow-hidden bg-background">
+      {/* Tab bar */}
+      <div className="flex items-center h-11 border-b border-border bg-card shrink-0">
         {/* Logo */}
         <Link
           href="/"
-          className="flex items-center gap-1.5 px-3 h-full border-r border-border/40 hover:bg-muted/40 transition-colors shrink-0"
+          className="flex items-center gap-2 px-4 h-full border-r border-border hover:bg-muted/40 transition-colors shrink-0"
         >
-          <div className="w-5 h-5 rounded bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-[10px]">Q</span>
-          </div>
-          <span className="font-bold text-xs text-foreground hidden sm:inline">QSQL</span>
+          <span className="text-base font-black tracking-tight gradient-text">QSQL</span>
         </Link>
 
         {/* Tabs */}
@@ -195,19 +204,15 @@ END $$;`;
             <div
               key={tab.id}
               onClick={() => setActiveTabId(tab.id)}
-              className={`flex items-center gap-1.5 px-3 h-full text-xs font-medium border-r border-border/30 cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
-                tab.id === activeTabId
-                  ? 'bg-background text-foreground'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
-              }`}
+              className={`relative flex items-center gap-2 px-4 h-full text-xs font-semibold border-r border-border/50 cursor-pointer transition-all duration-200 whitespace-nowrap shrink-0 ${tab.id === activeTabId
+                ? 'bg-background text-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
+                }`}
             >
-              <FileCode2 className="w-3 h-3 shrink-0" />
+              <FileCode2 className="w-3.5 h-3.5 shrink-0 opacity-50" />
               {editingTabId === tab.id ? (
                 <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleRenameTab(tab.id);
-                  }}
+                  onSubmit={(e) => { e.preventDefault(); handleRenameTab(tab.id); }}
                   className="flex items-center gap-1"
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -215,30 +220,16 @@ END $$;`;
                     type="text"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    className="w-24 px-1 py-0.5 text-xs bg-background border border-input rounded focus:outline-none focus:ring-1 focus:ring-ring/30"
+                    className="w-24 px-1.5 py-0.5 text-xs bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring/30"
                     autoFocus
                     onBlur={() => handleRenameTab(tab.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Escape') {
-                        setEditingTabId(null);
-                        setEditName('');
-                      }
-                    }}
+                    onKeyDown={(e) => { if (e.key === 'Escape') { setEditingTabId(null); setEditName(''); } }}
                   />
-                  <button
-                    type="submit"
-                    className="p-0.5 rounded text-emerald-500 hover:bg-emerald-500/10"
-                  >
-                    <Check className="w-3 h-3" />
-                  </button>
+                  <button type="submit" className="p-0.5 rounded text-emerald-500 hover:bg-emerald-500/10"><Check className="w-3 h-3" /></button>
                 </form>
               ) : (
                 <span
-                  onDoubleClick={(e) => {
-                    e.stopPropagation();
-                    setEditingTabId(tab.id);
-                    setEditName(tab.name);
-                  }}
+                  onDoubleClick={(e) => { e.stopPropagation(); setEditingTabId(tab.id); setEditName(tab.name); }}
                   className="select-none"
                 >
                   {tab.name}
@@ -246,52 +237,48 @@ END $$;`;
               )}
               {tabs.length > 1 && (
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleCloseTab(tab.id);
-                  }}
-                  className="p-0.5 rounded-sm text-muted-foreground/50 hover:text-foreground hover:bg-muted/60 transition-colors ml-1"
+                  onClick={(e) => { e.stopPropagation(); handleCloseTab(tab.id); }}
+                  className="p-0.5 rounded-md text-muted-foreground/40 hover:text-foreground hover:bg-muted/60 transition-colors ml-0.5"
                 >
                   <X className="w-3 h-3" />
                 </button>
+              )}
+              {tab.id === activeTabId && (
+                <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-primary rounded-full" />
               )}
             </div>
           ))}
           <button
             onClick={handleAddTab}
-            className="flex items-center justify-center px-2.5 h-full text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors shrink-0"
+            className="flex items-center justify-center px-3 h-full text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors shrink-0"
             title="New tab"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-4 h-4" />
           </button>
         </div>
 
         {/* Right controls */}
-        <div className="flex items-center gap-1 px-2.5 border-l border-border/40 h-full shrink-0">
-          <span className="text-[10px] text-muted-foreground/60 font-mono hidden sm:inline mr-1">
-            {creds.url.replace('https://', '').split('.')[0]}
+        <div className="flex items-center gap-2 px-3 border-l border-border h-full shrink-0">
+          <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 font-mono">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-soft-pulse" />
+            Connected: {creds.url.replace('https://', '').split('.')[0].slice(0, 8)}…
           </span>
           <ThemeToggle />
           <button
             onClick={handleFreeResources}
-            className="p-1.5 rounded-md text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10 transition-colors"
-            title="Free resources — delete all tabs, drafts & history"
+            className="p-2 rounded-xl text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10 transition-all duration-200"
+            title="Free resources — delete all tables, drafts & history"
           >
             <Trash className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={handleDisconnect}
-            className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+            className="p-2 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-200"
             title="Disconnect"
           >
             <LogOut className="w-3.5 h-3.5" />
           </button>
         </div>
-      </div>
-
-      {/* Active tab indicator line */}
-      <div className="h-[2px] bg-border/20 shrink-0 relative">
-        {/* The active tab gets a primary-colored bottom border via its bg-background which visually separates it */}
       </div>
 
       {/* Editor */}
