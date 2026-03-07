@@ -3,76 +3,90 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ThemeToggle } from './ThemeToggle';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Github } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 export function Navbar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
+  useEffect(() => setMobileOpen(false), [pathname]);
   useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
-  // Hide navbar on playground pages
   if (pathname.startsWith('/playground')) return null;
 
   const links = [
     { href: '/', label: 'Home' },
     { href: '/playground', label: 'Playground' },
     { href: '/docs', label: 'Docs' },
+    { href: '/guide', label: 'Guide' },
     { href: '/open-source', label: 'Open Source' },
   ];
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-border/50 glass-nav">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-14">
-          <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-xs">Q</span>
-            </div>
-            <span className="font-bold text-base text-foreground">
+    <nav className={`sticky top-0 z-50 glass-nav transition-all duration-300 ${scrolled ? 'shadow-md shadow-foreground/[0.03] dark:shadow-black/20' : ''}`}>
+      <div className="max-w-[72rem] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo — text-only gradient */}
+          <Link href="/" className="group flex items-center">
+            <span className="text-2xl font-black tracking-tight gradient-text transition-opacity duration-200 group-hover:opacity-80">
               QSQL
             </span>
           </Link>
 
-          {/* Desktop nav */}
-          <div className="hidden sm:flex items-center gap-1">
+          {/* Desktop links */}
+          <div className="hidden md:flex items-center gap-2">
             {links.map(({ href, label }) => {
               const isActive = pathname === href || (href !== '/' && pathname.startsWith(href));
               return (
                 <Link
                   key={href}
                   href={href}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
-                  }`}
+                  className={`relative px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 group ${isActive
+                    ? 'text-primary bg-primary/8'
+                    : 'text-muted-foreground hover:text-foreground'
+                    }`}
                 >
                   {label}
+                  {/* Active indicator */}
+                  {isActive && (
+                    <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-5 h-[2.5px] rounded-full bg-primary" />
+                  )}
+                  {/* Hover underline (non-active only) */}
+                  {!isActive && (
+                    <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 h-[2px] rounded-full bg-foreground/40 w-0 group-hover:w-5 transition-all duration-300" />
+                  )}
                 </Link>
               );
             })}
-            <div className="ml-2 border-l border-border/50 pl-2">
+
+            <div className="ml-3 flex items-center gap-1.5 border-l border-border pl-3">
+              <a
+                href="https://github.com/theyashva/QSQL"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 rounded-xl hover:bg-secondary transition-all duration-200 active:scale-95"
+                aria-label="GitHub"
+              >
+                <Github className="w-[18px] h-[18px] text-muted-foreground hover:text-foreground transition-colors" />
+              </a>
               <ThemeToggle />
             </div>
           </div>
 
           {/* Mobile controls */}
-          <div className="flex sm:hidden items-center gap-1">
+          <div className="flex md:hidden items-center gap-1">
+            <a href="https://github.com/theyashva/QSQL" target="_blank" rel="noopener noreferrer" className="p-2 rounded-xl hover:bg-secondary transition-all" aria-label="GitHub">
+              <Github className="w-[18px] h-[18px] text-muted-foreground" />
+            </a>
             <ThemeToggle />
-            <button
-              onClick={() => setMobileOpen(!mobileOpen)}
-              className="p-1.5 rounded-lg hover:bg-secondary/60 transition-colors"
-              aria-label="Toggle menu"
-            >
-              {mobileOpen ? (
-                <X className="w-5 h-5 text-foreground" />
-              ) : (
-                <Menu className="w-5 h-5 text-foreground" />
-              )}
+            <button onClick={() => setMobileOpen(!mobileOpen)} className="p-2 rounded-xl hover:bg-secondary transition-colors" aria-label="Toggle menu">
+              {mobileOpen ? <X className="w-5 h-5 text-foreground" /> : <Menu className="w-5 h-5 text-foreground" />}
             </button>
           </div>
         </div>
@@ -80,7 +94,7 @@ export function Navbar() {
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <div className="sm:hidden border-t border-border/50 glass-nav">
+        <div className="md:hidden border-t border-border glass-nav animate-slide-down">
           <div className="px-4 py-3 space-y-1">
             {links.map(({ href, label }) => {
               const isActive = pathname === href || (href !== '/' && pathname.startsWith(href));
@@ -88,11 +102,8 @@ export function Navbar() {
                 <Link
                   key={href}
                   href={href}
-                  className={`block px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
-                  }`}
+                  className={`block px-4 py-3 rounded-xl text-sm font-semibold transition-all ${isActive ? 'bg-primary/8 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                    }`}
                 >
                   {label}
                 </Link>

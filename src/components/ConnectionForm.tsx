@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { saveCredentials, testConnection, type SupabaseCredentials } from '@/lib/supabase';
-import { Loader2, CheckCircle2, XCircle, Link2 } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Link2, KeyRound, ArrowRight } from 'lucide-react';
 
 interface ConnectionFormProps {
   onConnected: () => void;
@@ -18,10 +18,8 @@ export function ConnectionForm({ onConnected, initialCreds }: ConnectionFormProp
 
   const handleConnect = async (e: React.FormEvent) => {
     e.preventDefault();
-
     const trimmedUrl = url.trim().replace(/\/$/, '');
     const trimmedKey = anonKey.trim();
-
     if (!trimmedUrl || !trimmedKey) return;
 
     setTesting(true);
@@ -29,41 +27,40 @@ export function ConnectionForm({ onConnected, initialCreds }: ConnectionFormProp
     setErrorMsg('');
 
     const result = await testConnection({ url: trimmedUrl, anonKey: trimmedKey });
-
     if (result.success) {
       setStatus('success');
       saveCredentials({ url: trimmedUrl, anonKey: trimmedKey });
-      setTimeout(() => onConnected(), 500);
+      setTimeout(() => onConnected(), 600);
     } else {
       setStatus('error');
       setErrorMsg(result.error || 'Connection failed');
     }
-
     setTesting(false);
   };
 
   return (
-    <form onSubmit={handleConnect} className="space-y-4">
+    <form onSubmit={handleConnect} className="space-y-6">
+      {/* URL */}
       <div>
-        <label htmlFor="supabase-url" className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+        <label htmlFor="supabase-url" className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2.5">
+          <Link2 className="w-3.5 h-3.5" />
           Supabase Project URL
         </label>
-        <div className="relative">
-          <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
-          <input
-            id="supabase-url"
-            type="url"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://your-project.supabase.co"
-            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-primary/40 transition-all"
-            required
-          />
-        </div>
+        <input
+          id="supabase-url"
+          type="url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://your-project.supabase.co"
+          className="premium-input w-full px-4 py-3.5 text-sm text-foreground placeholder:text-muted-foreground/40"
+          required
+        />
       </div>
 
+      {/* Anon Key */}
       <div>
-        <label htmlFor="anon-key" className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+        <label htmlFor="anon-key" className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2.5">
+          <KeyRound className="w-3.5 h-3.5" />
           Anon / Public Key
         </label>
         <input
@@ -72,37 +69,39 @@ export function ConnectionForm({ onConnected, initialCreds }: ConnectionFormProp
           value={anonKey}
           onChange={(e) => setAnonKey(e.target.value)}
           placeholder="eyJhbGciOiJIUzI1NiIs..."
-          className="w-full px-4 py-2.5 rounded-lg border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-primary/40 transition-all font-mono"
+          className="premium-input w-full px-4 py-3.5 text-sm text-foreground placeholder:text-muted-foreground/40 font-mono"
           required
         />
       </div>
 
+      {/* Error */}
       {status === 'error' && (
-        <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/8 border border-destructive/15">
-          <XCircle className="w-4 h-4 text-destructive mt-0.5 shrink-0" />
-          <p className="text-sm text-destructive">{errorMsg}</p>
+        <div className="flex items-start gap-3 p-4 rounded-2xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 animate-scale-in">
+          <XCircle className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
+          <p className="text-sm text-red-600 dark:text-red-400 font-medium">{errorMsg}</p>
         </div>
       )}
 
+      {/* Success */}
       {status === 'success' && (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-success/8 border border-success/15">
-          <CheckCircle2 className="w-4 h-4 text-success" />
-          <p className="text-sm text-success font-medium">Connected successfully!</p>
+        <div className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 animate-scale-in">
+          <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+          <p className="text-sm text-emerald-600 dark:text-emerald-400 font-bold">Connected successfully!</p>
         </div>
       )}
 
+      {/* Submit */}
       <button
         type="submit"
         disabled={testing || !url.trim() || !anonKey.trim()}
-        className="w-full py-2.5 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150 flex items-center justify-center gap-2 active:scale-[0.98]"
+        className="btn-primary w-full py-4 px-6 rounded-2xl bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none disabled:transform-none transition-all flex items-center justify-center gap-2.5"
       >
         {testing ? (
-          <>
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Testing Connection...
-          </>
+          <><Loader2 className="w-4.5 h-4.5 animate-spin" /> Testing Connection...</>
+        ) : status === 'success' ? (
+          <><CheckCircle2 className="w-4.5 h-4.5" /> Connected!</>
         ) : (
-          'Connect to Supabase'
+          <>Connect to Supabase <ArrowRight className="w-4 h-4" /></>
         )}
       </button>
     </form>
