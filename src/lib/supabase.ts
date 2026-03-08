@@ -129,12 +129,50 @@ export function renameTab(id: string, newName: string): void {
   }
 }
 
+export interface ClosedTab {
+  tab: EditorTab;
+  draft: string;
+}
+
+const CLOSED_TABS_KEY = 'qsql_closed_tabs';
+
+export function getClosedTabs(): ClosedTab[] {
+  if (typeof window === 'undefined') return [];
+  const stored = localStorage.getItem(CLOSED_TABS_KEY);
+  if (!stored) return [];
+  try {
+    return JSON.parse(stored);
+  } catch {
+    return [];
+  }
+}
+
+function saveClosedTabs(closedTabs: ClosedTab[]): void {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(CLOSED_TABS_KEY, JSON.stringify(closedTabs));
+  }
+}
+
+export function pushClosedTab(tab: EditorTab, draft: string): void {
+  const closed = getClosedTabs();
+  closed.push({ tab, draft });
+  // Keep at most 20 recently closed tabs
+  if (closed.length > 20) closed.shift();
+  saveClosedTabs(closed);
+}
+
+export function popClosedTab(): ClosedTab | null {
+  const closed = getClosedTabs();
+  if (closed.length === 0) return null;
+  const item = closed.pop()!;
+  saveClosedTabs(closed);
+  return item;
+}
+
 export function deleteTab(id: string): void {
   const tabs = getTabs().filter((t) => t.id !== id);
   saveTabs(tabs);
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem(`qsql_draft_${id}`);
-  }
+  // Draft is NOT removed here — it's saved to the closed tabs stack by the caller
 }
 
 export function clearAllData(): void {
@@ -145,6 +183,7 @@ export function clearAllData(): void {
   }
   localStorage.removeItem(TABS_KEY);
   localStorage.removeItem('qsql_history');
+  localStorage.removeItem(CLOSED_TABS_KEY);
 }
 
 // --- Editor draft persistence ---
